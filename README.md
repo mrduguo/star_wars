@@ -70,6 +70,9 @@ $ STAR_WARS_API_SEARCH_MAX_RESULT=3 ./star_wars a
 
 ## Development
 
+### Requirement
+You need have the `kscript` installed. Follow the official [installation](https://github.com/holgerbrandl/kscript#installation) guide to get installed.  
+
 ### Build the binary 
 ~~~
 kscript --package star_wars.kts
