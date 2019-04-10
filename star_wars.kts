@@ -7,7 +7,6 @@ import com.github.kittinunf.fuel.core.Headers
 import com.github.kittinunf.fuel.core.isSuccessful
 import com.github.kittinunf.fuel.gson.responseObject
 import java.net.URLEncoder
-import kotlin.system.exitProcess
 
 
 /*
@@ -20,11 +19,22 @@ import kotlin.system.exitProcess
 
  */
 
-when {
-    args.isEmpty() -> showUsage()
-    args[0] == "TEST" -> executeTests()
-    else -> executeSearch()
+
+if (isNotTest()) {
+    val searchTerm = args.joinToString(" ")
+    val starWars = StarWars()
+
+    println(
+            if (searchTerm.isNotEmpty()) {
+                starWars.executeSearch(searchTerm)
+            } else {
+                starWars.showUsage()
+            }
+    )
 }
+
+fun isNotTest() = !(System.getenv("KSCRIPT_FILE") ?: System.getenv("_")).contains("_test")
+
 
 /*
  _______       ___   .___________.    ___         .___  ___.   ______    _______   _______  __
@@ -88,10 +98,10 @@ class StarWarsApiClient {
     val baseUrl = System.getenv("STAR_WARS_API_BASE_URL") ?: "https://swapi.co/api"
     val searchMaxResultCount = (System.getenv("STAR_WARS_API_SEARCH_MAX_RESULT") ?: "10").toInt()
 
-    fun searchPeopleByTerm(searchTerm: String): List<StarWarCharacter> {
+    fun searchCharactersByTerm(searchTerm: String): List<StarWarCharacter> {
         val resultList = mutableListOf<StarWarCharacter>()
         var searchUrl = "$baseUrl/people/?search=${URLEncoder.encode(searchTerm, "UTF-8")}"
-        loop@while (true) {
+        loop@ while (true) {
             val searchResult = executeGetRequest<SearchResult>(searchUrl)
             for (character in searchResult.results) {
                 resultList.add(character)
@@ -135,112 +145,34 @@ class StarWarsApiClient {
  */
 
 
-fun showUsage() {
-    println("Usage:\n  ./star_wars <search term>")
-    exitProcess(-1)
-}
+class StarWars {
+    val starWarsApiClient = StarWarsApiClient()
 
-fun executeSearch() {
-    try {
-        val characters = searchStarWarCharacters(args.joinToString(" "))
+    fun showUsage() = "Usage:\n  ./star_wars <search term>"
+
+    fun executeSearch(searchTerm: String): String {
+        val characters = searchStarWarCharacters(searchTerm)
         if (characters.isNotEmpty()) {
-            println(characters.joinToString("\n========================================================\n"))
+            return characters.joinToString("\n========================================================\n")
         } else {
-            println("error: no character found for search term <${args.joinToString(" ")}>")
-            exitProcess(-1)
+            return "no character found for search term <$searchTerm>"
         }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        exitProcess(-1)
     }
-}
 
-fun searchStarWarCharacters(searchTerm: String): List<StarWarCharacter> {
-    val starWarApiClient = StarWarsApiClient()
-    val characters = starWarApiClient.searchPeopleByTerm(searchTerm)
-    characters.forEach { enrichCharacter(starWarApiClient, it) }
-    return characters
-}
-
-fun enrichCharacter(starWarsApiClient: StarWarsApiClient, character: StarWarCharacter) {
-    character.homeworld = starWarsApiClient.executeGetRequest<StarWarHomeWorld>(character.homeworld).name
-    character.species = character.species.map { species ->
-        starWarsApiClient.executeGetRequest<StarWarSpecies>(species).toString()
+    private fun searchStarWarCharacters(searchTerm: String): List<StarWarCharacter> {
+        val characters = starWarsApiClient.searchCharactersByTerm(searchTerm)
+        characters.forEach { enrichCharacter(it) }
+        return characters
     }
-    character.films = character.films.map { film ->
-        starWarsApiClient.executeGetRequest<StarWarFilm>(film).title
+
+    private fun enrichCharacter(character: StarWarCharacter) {
+        character.homeworld = starWarsApiClient.executeGetRequest<StarWarHomeWorld>(character.homeworld).name
+        character.species = character.species.map { species ->
+            starWarsApiClient.executeGetRequest<StarWarSpecies>(species).toString()
+        }
+        character.films = character.films.map { film ->
+            starWarsApiClient.executeGetRequest<StarWarFilm>(film).title
+        }
     }
-}
 
-/*
-.___________. _______     _______.___________.    _______.
-|           ||   ____|   /       |           |   /       |
-`---|  |----`|  |__     |   (----`---|  |----`  |   (----`
-    |  |     |   __|     \   \       |  |        \   \
-    |  |     |  |____.----)   |      |  |    .----)   |
-    |__|     |_______|_______/       |__|    |_______/
- */
-
-
-fun executeTests() {
-    try {
-        testExistCharacter()
-        testNoneExistCharacter()
-        testMultiPageSearch()
-        testInvalidApiRequest()
-    } catch (e: Exception) {
-        e.printStackTrace()
-        println("FAILED: ${e.message}")
-        exitProcess(-1)
-    }
-}
-
-
-fun testExistCharacter() {
-    println("TEST: search exist character should return pre-defined structure with data")
-    val characters = searchStarWarCharacters("darth vader")
-    assertEqual(characters.size, 1)
-    assertEqual(characters.first().toString(), """
-* Name: Darth Vader
-* Species: Human (Average Lifespan: 120 years)
-* Home World: Tatooine
-* Movies: The Empire Strikes Back, Revenge of the Sith, Return of the Jedi, A New Hope
-""".trimIndent())
-    println("PASS")
-}
-
-fun testNoneExistCharacter() {
-    println("TEST: search none exist character should return empty character")
-    val characters = searchStarWarCharacters("never existed before")
-    assertEqual(characters.size, 0)
-    println("PASS")
-}
-
-
-fun testMultiPageSearch() {
-    println("TEST: search general term with multiple page should return max configured items")
-    val characters = searchStarWarCharacters("a")
-    assertEqual(characters.size, 10)
-    println("PASS")
-}
-
-fun testInvalidApiRequest() {
-    println("TEST: request with invalid api parameter should throw exception")
-    var excption: Any? = null
-    try {
-        StarWarsApiClient().executeGetRequest<StarWarFilm>("${StarWarsApiClient().baseUrl}/path-not-exist")
-    } catch (e: Exception) {
-        excption = e
-    }
-    if (excption == null) {
-        throw Exception("expected exception didn't happen")
-    }
-    println("PASS")
-}
-
-
-fun assertEqual(actual: Any, expected: Any) {
-    if (actual != expected) {
-        throw Exception("actual \n$actual\n!= expected\n$expected")
-    }
 }

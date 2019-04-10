@@ -11,7 +11,7 @@ This command line tool is to search your favourite Star Wars characters by name.
 
 ### Download
 
-[star_wars](https://raw.githubusercontent.com/mrduguo/star_wars/master/star_wars)
+[star_wars](https://raw.githubusercontent.com/mrduguo/star_wars/master/star_wars) (1.8MB)
 
 After download, give execution permission by `chmod +x star_wars`.
 
@@ -70,8 +70,24 @@ $ STAR_WARS_API_SEARCH_MAX_RESULT=3 ./star_wars a
 
 ## Development
 
+### File structures
+
+* `README.md` - documentation
+* `star_wars.kts` - main solution source code
+* `star_wars_test.kts` - tests
+* `star_wars` - binary distribution
+
+
+
 ### Requirement
 You need have the `kscript` installed. Follow the official [installation](https://github.com/holgerbrandl/kscript#installation) guide to get installed.  
+
+### Run the tool directly
+~~~
+$ ./star_wars.kts
+Usage:
+  ./star_wars <search term>
+~~~
 
 ### Build the binary 
 ~~~
@@ -82,13 +98,18 @@ Then you can find the binary been built at same folder as the script as `star_wa
 
 ### Run test
 ~~~
-$ ./star_wars.kts TEST
-TEST: search exist character should return pre-defined structure with data
-PASS
-TEST: search none exist character should return empty character
-PASS
-TEST: search general term with multiple page should return max configured items
-PASS
-TEST: request with invalid api parameter should throw exception
-PASS
+$ ./src/star_wars_test.kts 
+1)      happy paths
+                show usage should return instructions
+                exact character name search should return the pre-defined structure
+                none exist name search should return error message
+                multi page search result should return the pre-defined structure
+        sad paths
+                failed dependent API response should throw exception
+                invalid host name base url should throw exception
+                invalid max value throw exception
+
+KotlinTest completed in 16 seconds, 16313 millis
+Specs: completed 1, tests 9
+Tests: passed 9, failed 0, ignored 0
 ~~~
